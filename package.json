@@ -9,7 +9,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "body-parser": "^2.2.2",
     "express": "^5.2.1",
@@ -18,5 +17,14 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prajwal-ku/ESP_ATTACK_SIM.git"
+  },
+  "bugs": {
+    "url": "https://github.com/prajwal-ku/ESP_ATTACK_SIM/issues"
+  },
+  "homepage": "https://github.com/prajwal-ku/ESP_ATTACK_SIM#readme",
+  "description": ""
 }
