@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attack Monitor Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #00ff00;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+        
+        .stat-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin-top: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .control-panel {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #00ff00;
+        }
+        
+        input, select, button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        button {
+            cursor: pointer;
+            background: #00ff00;
+            color: #000;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #00cc00;
+            transform: scale(1.05);
+        }
+        
+        .device-list, .attack-log {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .device-item, .attack-item {
+            padding: 10px;
+            border-bottom: 1px solid #00ff00;
+            font-size: 12px;
+        }
+        
+        .device-item:last-child, .attack-item:last-child {
+            border-bottom: none;
+        }
+        
+        .attack-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .attack-time {
+            color: #888;
+            font-size: 11px;
+        }
+        
+        .chart-container {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        canvas {
+            max-height: 300px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #00ff00;
+            color: #000;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .stop-btn {
+            background: #ff0000;
+            border-color: #ff0000;
+            color: #fff;
+        }
+        
+        .stop-btn:hover {
+            background: #cc0000;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚔️ ATTACK MONITOR DASHBOARD ⚔️</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>Total Attacks</div>
+                <div class="stat-value" id="totalAttacks">0</div>
+            </div>
+            <div class="stat-card">
+                <div>Attacks/Sec</div>
+                <div class="stat-value" id="attacksPerSec">0</div>
+            </div>
+            <div class="stat-card">
+                <div>Active Devices</div>
+                <div class="stat-value" id="activeDevices">0</div>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <h3>🎮 Device Control</h3>
+            <div class="control-group">
+                <label>Target URL:</label>
+                <input type="text" id="targetUrl" placeholder="https://example.com" value="https://httpbin.org/get">
+            </div>
+            <div class="control-group">
+                <label>Rate (requests/sec):</label>
+                <input type="number" id="rate" min="1" max="100" value="10">
+            </div>
+            <div class="control-group">
+                <label>Duration (seconds, 0=unlimited):</label>
+                <input type="number" id="duration" min="0" value="0">
+            </div>
+            <button onclick="sendCommand('START')">🚀 START ATTACK</button>
+            <button onclick="sendCommand('STOP')" class="stop-btn" style="margin-left: 10px;">🛑 STOP ATTACK</button>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="attackChart"></canvas>
+        </div>
+        
+        <div class="device-list">
+            <h3>📡 Connected Devices</h3>
+            <div id="devices"></div>
+        </div>
+        
+        <div class="attack-log">
+            <h3>📊 Recent Attacks</h3>
+            <div id="attackLog"></div>
+        </div>
+    </div>
+    
+    <script>
+        const socket = io();
+        let attackChart = null;
+        
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('attackChart').getContext('2d');
+            attackChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Attacks Per Second',
+                        data: [],
+                        borderColor: '#00ff00',
+                        backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#00ff0020' },
+                            ticks: { color: '#00ff00' }
+                        },
+                        x: {
+                            grid: { color: '#00ff0020' },
+                            ticks: { color: '#00ff00' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#00ff00' } }
+                    }
+                }
+            });
+        }
+        
+        // Update chart
+        function updateChart(history) {
+            if (!attackChart) initChart();
+            
+            const labels = history.map(h => new Date(h.time).toLocaleTimeString());
+            const data = history.map(h => h.count);
+            
+            attackChart.data.labels = labels;
+            attackChart.data.datasets[0].data = data;
+            attackChart.update();
+        }
+        
+        // Update devices list
+        function updateDevices(devices) {
+            const devicesDiv = document.getElementById('devices');
+            if (devices.length === 0) {
+                devicesDiv.innerHTML = '<div style="text-align: center; color: #888;">No devices connected</div>';
+                return;
+            }
+            
+            devicesDiv.innerHTML = devices.map(device => `
+                <div class="device-item">
+                    <strong>🔌 ${device.id}</strong>
+                    <span class="badge">${device.type || 'HTTP'}</span>
+                    <div>Attacks: ${device.count}</div>
+                    <div>Last: ${new Date(device.lastAttack).toLocaleTimeString()}</div>
+                </div>
+            `).join('');
+        }
+        
+        // Update attack log
+        function updateAttackLog(attack) {
+            const logDiv = document.getElementById('attackLog');
+            const newEntry = document.createElement('div');
+            newEntry.className = 'attack-item';
+            newEntry.innerHTML = `
+                <div>
+                    <strong>${attack.deviceId}</strong> → ${attack.target || 'N/A'}
+                    <span class="badge">${attack.type || 'PING'}</span>
+                </div>
+                <div class="attack-time">${attack.time}</div>
+            `;
+            
+            logDiv.insertBefore(newEntry, logDiv.firstChild);
+            
+            // Keep only last 50 entries
+            while (logDiv.children.length > 50) {
+                logDiv.removeChild(logDiv.lastChild);
+            }
+        }
+        
+        // Update stats display
+        function updateStats(totalAttacks, attacksPerSec, devices) {
+            document.getElementById('totalAttacks').textContent = totalAttacks.toLocaleString();
+            document.getElementById('attacksPerSec').textContent = attacksPerSec;
+            document.getElementById('activeDevices').textContent = devices.length;
+        }
+        
+        // Send command to ESP devices
+        function sendCommand(action) {
+            const target = document.getElementById('targetUrl').value;
+            const rate = parseInt(document.getElementById('rate').value);
+            const duration = parseInt(document.getElementById('duration').value);
+            
+            fetch('/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, target, rate, duration })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Command sent:', data);
+                if (action === 'START') {
+                    addSystemMessage(`Attack started on ${target} at ${rate} req/sec`);
+                } else {
+                    addSystemMessage('Attack stopped');
+                }
+            })
+            .catch(err => console.error('Error:', err));
+        }
+        
+        function addSystemMessage(message) {
+            const logDiv = document.getElementById('attackLog');
+            const sysMsg = document.createElement('div');
+            sysMsg.className = 'attack-item';
+            sysMsg.style.background = '#00ff0010';
+            sysMsg.innerHTML = `
+                <div><strong>SYSTEM</strong> → ${message}</div>
+                <div class="attack-time">${new Date().toLocaleTimeString()}</div>
+            `;
+            logDiv.insertBefore(sysMsg, logDiv.firstChild);
+        }
+        
+        // Socket event handlers
+        socket.on('connect', () => {
+            console.log('Connected to dashboard');
+            addSystemMessage('Dashboard connected');
+        });
+        
+        socket.on('attack-update', (data) => {
+            updateStats(data.totalAttacks, data.attacksPerSecond, data.devices);
+            updateDevices(data.devices);
+            updateAttackLog(data.recentAttack);
+            if (data.history) updateChart(data.history);
+        });
+        
+        // Initialize
+        initChart();
+    </script>
+</body>
+</html>
