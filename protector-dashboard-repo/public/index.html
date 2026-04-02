@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS SECURITY | Protector Monitor</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 20% 50%, #0a0f1e 0%, #05070f 100%);
+            color: #e0e0e0;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .glow {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .glow-1 {
+            background: #00ffff;
+            top: -200px;
+            right: -200px;
+            animation: float 15s ease-in-out infinite;
+        }
+
+        .glow-2 {
+            background: #ff00ff;
+            bottom: -200px;
+            left: -200px;
+            animation: float 12s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(50px, 50px); }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 20px 30px;
+            background: rgba(10, 20, 30, 0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.7); }
+            50% { box-shadow: 0 0 0 20px rgba(0, 255, 255, 0); }
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 20px;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 30px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #00ff00;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(10, 20, 30, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .stat-card:hover::before {
+            left: 100%;
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            color: #00ffff;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #8b9bb0;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, #00ffff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-family: 'Monaco', monospace;
+        }
+
+        .stat-trend {
+            font-size: 12px;
+            margin-top: 10px;
+            color: #00ff00;
+        }
+
+        .control-panel,
+        .chart-container,
+        .devices-section,
+        .logs-section {
+            background: rgba(10, 20, 30, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group {
+            display: inline-block;
+            margin-right: 25px;
+            margin-bottom: 20px;
+            vertical-align: top;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            color: #8b9bb0;
+        }
+
+        .control-group input {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            color: #00ffff;
+            padding: 12px 15px;
+            font-family: 'Monaco', monospace;
+            font-size: 14px;
+            width: 250px;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .control-group input:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            margin-right: 15px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00ffff, #00ccff);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffcc00, #ff8800);
+            color: #111;
+        }
+
+        .btn-warning:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 204, 0, 0.45);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff3366, #ff0066);
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.5);
+        }
+
+        canvas {
+            max-height: 350px;
+        }
+
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .device-card {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .device-card.online {
+            border-color: #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+
+        .device-card.offline {
+            border-color: #ff3366;
+            opacity: 0.6;
+        }
+
+        .device-card:hover {
+            transform: translateX(5px);
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .device-name {
+            font-weight: 700;
+            color: #00ffff;
+            font-size: 14px;
+        }
+
+        .device-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .device-badge.online {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+        }
+
+        .device-badge.offline {
+            background: rgba(255, 51, 102, 0.2);
+            color: #ff3366;
+        }
+
+        .device-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #8b9bb0;
+            margin-top: 10px;
+            gap: 12px;
+        }
+
+        .device-stats span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .log-entries {
+            max-height: 320px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            font-size: 13px;
+            font-family: 'Monaco', monospace;
+            transition: all 0.3s;
+        }
+
+        .log-entry:hover {
+            background: rgba(0, 255, 255, 0.05);
+            padding-left: 20px;
+        }
+
+        .log-entry.info {
+            border-left: 3px solid #00ffff;
+        }
+
+        .log-entry.warning {
+            border-left: 3px solid #ffcc00;
+        }
+
+        .log-entry.critical {
+            border-left: 3px solid #ff3366;
+        }
+
+        .log-device {
+            color: #00ffff;
+            font-weight: 600;
+        }
+
+        .log-target {
+            color: #ff00ff;
+        }
+
+        .log-time {
+            color: #8b9bb0;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+        .mitigation-strip {
+            margin-bottom: 30px;
+            background: rgba(10, 20, 30, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 25px;
+        }
+
+        .mitigation-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .mitigation-tile {
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .mitigation-tile strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #8b9bb0;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mitigation-value { font-size: 24px; font-weight: 700; color: #ffffff; }
+        .mitigation-pill { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .mitigation-ready { background: rgba(0, 255, 140, 0.16); color: #00ff9c; }
+        .mitigation-engaged { background: rgba(255, 196, 82, 0.16); color: #ffd46b; }
+        .mitigation-lockdown { background: rgba(255, 51, 102, 0.16); color: #ff7d9b; }
+        .mitigation-calibrating { background: rgba(0, 204, 255, 0.16); color: #73e7ff; }
+        .mitigation-note { margin-top: 14px; color: #8b9bb0; font-size: 13px; }
+
+        .asset-table {
+            display: grid;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .asset-row {
+            display: grid;
+            grid-template-columns: 1.5fr 0.8fr 0.8fr;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(0, 255, 255, 0.12);
+            font-size: 13px;
+            font-family: 'Monaco', monospace;
+        }
+
+        .asset-row.asset-head {
+            background: transparent;
+            border: none;
+            color: #8b9bb0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 4px 6px;
+            font-size: 11px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            border-radius: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-grid,
+            .mitigation-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+
+            .stats-grid,
+            .mitigation-grid,
+            .asset-row {
+                grid-template-columns: 1fr;
+            }
+
+            .control-group input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <h1>NEXUS PROTECTOR</h1>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span>DEFENSE GRID ONLINE</span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-radar"></i></div>
+                <div class="stat-label">Threat Events</div>
+                <div class="stat-value" id="totalThreatEvents">0</div>
+                <div class="stat-trend"><i class="fas fa-wave-square"></i> hostile events observed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
+                <div class="stat-label">Inbound Pressure</div>
+                <div class="stat-value" id="attackRate">0</div>
+                <div class="stat-trend">events/sec</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-shield-virus"></i></div>
+                <div class="stat-label">Blocked Estimate</div>
+                <div class="stat-value" id="blockedEstimate">0</div>
+                <div class="stat-trend">deflected by shield</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-bullseye"></i></div>
+                <div class="stat-label">Protected Assets</div>
+                <div class="stat-value" id="protectedAssets">0</div>
+                <div class="stat-trend">targets under watch</div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div class="panel-title">
+                <i class="fas fa-sliders"></i>
+                <span>PROTECTOR CONTROLS</span>
+            </div>
+            <div class="control-group">
+                <label>SHIELD MODE</label>
+                <input type="text" id="shieldModeField" value="GUARD" readonly>
+            </div>
+            <div class="control-group">
+                <label>LAST ACTION</label>
+                <input type="text" id="lastActionField" value="MONITOR" readonly>
+            </div>
+            <div class="control-group">
+                <label>EXPOSURE SCORE</label>
+                <input type="text" id="exposureField" value="0.00" readonly>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="setShieldMode('GUARD')"><i class="fas fa-eye"></i> Guard</button>
+                <button class="btn btn-warning" onclick="setShieldMode('THROTTLE')"><i class="fas fa-filter"></i> Throttle</button>
+                <button class="btn btn-danger" onclick="setShieldMode('CONTAIN')"><i class="fas fa-lock"></i> Contain</button>
+                <button class="btn btn-primary" onclick="downloadReport()"><i class="fas fa-file-excel"></i> Export XL Report</button>
+            </div>
+        </div>
+
+        <div class="mitigation-strip">
+            <div class="panel-title">
+                <i class="fas fa-user-shield"></i>
+                <span>PROTECTOR POSTURE MODEL</span>
+            </div>
+            <div class="mitigation-grid">
+                <div class="mitigation-tile"><strong>Status</strong><div class="mitigation-value"><span id="shieldStatus" class="mitigation-pill mitigation-calibrating">CALIBRATING</span></div></div>
+                <div class="mitigation-tile"><strong>Mode</strong><div class="mitigation-value" id="shieldMode">WATCH</div></div>
+                <div class="mitigation-tile"><strong>Peak Pressure</strong><div class="mitigation-value" id="peakRate">0</div></div>
+                <div class="mitigation-tile"><strong>Incidents</strong><div class="mitigation-value" id="incidentCount">0</div></div>
+            </div>
+            <div class="mitigation-note" id="lastReason">Waiting for live traffic telemetry.</div>
+        </div>
+
+        <div class="chart-container">
+            <div class="panel-title">
+                <i class="fas fa-chart-line"></i>
+                <span>PRESSURE VS SHIELD RESPONSE</span>
+            </div>
+            <canvas id="pressureChart"></canvas>
+        </div>
+
+        <div class="devices-section">
+            <div class="panel-title">
+                <i class="fas fa-crosshairs"></i>
+                <span>PROTECTED ASSETS</span>
+                <span style="margin-left: auto; font-size: 12px;" id="assetCountBadge"></span>
+            </div>
+            <div class="asset-table" id="assetTable"></div>
+        </div>
+
+        <div class="devices-section">
+            <div class="panel-title">
+                <i class="fas fa-network-wired"></i>
+                <span>DEFENDER NODES</span>
+                <span style="margin-left: auto; font-size: 12px;" id="deviceCountBadge"></span>
+            </div>
+            <div class="devices-grid" id="devicesGrid"></div>
+        </div>
+
+        <div class="logs-section">
+            <div class="panel-title">
+                <i class="fas fa-list-ul"></i>
+                <span>DEFENSE FEED</span>
+            </div>
+            <div class="log-entries" id="defenseFeed"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let pressureChart = null;
+
+        function initChart() {
+            const ctx = document.getElementById('pressureChart').getContext('2d');
+            pressureChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Inbound Pressure',
+                            data: [],
+                            borderColor: '#00ffff',
+                            backgroundColor: 'rgba(0, 255, 255, 0.05)',
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            pointHoverBackgroundColor: '#ff00ff',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Blocked Estimate',
+                            data: [],
+                            borderColor: '#ffd46b',
+                            backgroundColor: 'rgba(255, 212, 107, 0.08)',
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Exposure x10',
+                            data: [],
+                            borderColor: '#ff3366',
+                            borderWidth: 2,
+                            borderDash: [8, 6],
+                            pointRadius: 0,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: { labels: { color: '#e0e0e0', font: { size: 12 } } },
+                        tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', titleColor: '#00ffff', bodyColor: '#e0e0e0' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0, 255, 255, 0.1)' },
+                            ticks: { color: '#8b9bb0' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(0, 255, 255, 0.05)' },
+                            ticks: { color: '#8b9bb0', maxRotation: 45, maxTicksLimit: 10 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(history) {
+            if (!pressureChart) initChart();
+            if (!history || history.length === 0) return;
+
+            pressureChart.data.labels = history.map((point) => new Date(point.time).toLocaleTimeString());
+            pressureChart.data.datasets[0].data = history.map((point) => point.inbound || 0);
+            pressureChart.data.datasets[1].data = history.map((point) => point.blocked || 0);
+            pressureChart.data.datasets[2].data = history.map((point) => Number(point.exposure || 0) * 10);
+            pressureChart.update();
+        }
+
+        function mitigationClass(status) {
+            const normalized = String(status || '').toLowerCase();
+            if (normalized === 'ready') return 'mitigation-pill mitigation-ready';
+            if (normalized === 'engaged') return 'mitigation-pill mitigation-engaged';
+            if (normalized === 'lockdown') return 'mitigation-pill mitigation-lockdown';
+            return 'mitigation-pill mitigation-calibrating';
+        }
+
+        function severityClass(severity) {
+            const normalized = String(severity || 'info').toLowerCase();
+            if (normalized === 'critical') return 'critical';
+            if (normalized === 'warning') return 'warning';
+            return 'info';
+        }
+
+        function updateHeader(snapshot) {
+            const status = snapshot.shieldStatus || 'CALIBRATING';
+            const statusEl = document.getElementById('shieldStatus');
+            statusEl.textContent = status;
+            statusEl.className = mitigationClass(status);
+
+            document.getElementById('shieldMode').textContent = snapshot.shieldMode || 'WATCH';
+            document.getElementById('peakRate').textContent = Number(snapshot.peakRate || 0);
+            document.getElementById('incidentCount').textContent = (snapshot.incidents || []).length;
+            document.getElementById('lastReason').textContent = snapshot.lastReason || 'No shield reasoning available.';
+            document.getElementById('shieldModeField').value = snapshot.shieldMode || 'WATCH';
+            document.getElementById('lastActionField').value = snapshot.lastAction || 'MONITOR';
+            document.getElementById('exposureField').value = Number(snapshot.exposureScore || 0).toFixed(2);
+        }
+
+        function updateStats(snapshot) {
+            document.getElementById('totalThreatEvents').textContent = Number(snapshot.totalThreatEvents || 0).toLocaleString();
+            document.getElementById('attackRate').textContent = Number(snapshot.attackRate || 0);
+            document.getElementById('blockedEstimate').textContent = Number(snapshot.blockedEstimate || 0);
+            document.getElementById('protectedAssets').textContent = Number(snapshot.protectedAssets || 0);
+        }
+
+        function updateAssets(targets) {
+            const assetTable = document.getElementById('assetTable');
+            const rows = targets || [];
+            document.getElementById('assetCountBadge').innerHTML = `<i class="fas fa-bullseye"></i> ${rows.length} tracked assets`;
+
+            if (rows.length === 0) {
+                assetTable.innerHTML = '<div style="text-align: center; padding: 24px; color: #8b9bb0;"><i class="fas fa-bullseye"></i> No protected assets detected</div>';
+                return;
+            }
+
+            assetTable.innerHTML = `
+                <div class="asset-row asset-head">
+                    <div>Asset</div>
+                    <div>Hits</div>
+                    <div>Peak Rate</div>
+                </div>
+                ${rows.map((target) => `
+                    <div class="asset-row">
+                        <div><span class="log-target">${target.target}</span><br><span style="color:#8b9bb0; font-size:11px;">Last seen ${new Date(target.lastSeen).toLocaleTimeString()}</span></div>
+                        <div>${Number(target.hits || 0).toLocaleString()}</div>
+                        <div>${Number(target.peakRate || 0)}/s</div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function updateDevices(devices) {
+            const container = document.getElementById('devicesGrid');
+            const onlineCount = devices.filter((device) => device.status === 'online').length;
+            document.getElementById('deviceCountBadge').innerHTML = `<i class="fas fa-microchip"></i> ${onlineCount}/${devices.length} active`;
+
+            if (devices.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #8b9bb0;"><i class="fas fa-plug"></i> No defender nodes connected</div>';
+                return;
+            }
+
+            container.innerHTML = devices.map((device) => `
+                <div class="device-card ${device.status}">
+                    <div class="device-header">
+                        <span class="device-name"><i class="fas fa-microchip"></i> ${device.id}</span>
+                        <span class="device-badge ${device.status}">${device.status.toUpperCase()}</span>
+                    </div>
+                    <div class="device-stats">
+                        <span><i class="fas fa-shield-alt"></i> ${Number(device.count || 0).toLocaleString()} events</span>
+                        <span><i class="fas fa-tachometer-alt"></i> ${device.attackRate || 0}/s</span>
+                    </div>
+                    <div class="device-stats">
+                        <span><i class="fas fa-clock"></i> Last: ${new Date(device.lastSeen).toLocaleTimeString()}</span>
+                        <span><i class="fas fa-bullseye"></i> ${(device.target || 'N/A').substring(0, 30)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateFeed(events) {
+            const logDiv = document.getElementById('defenseFeed');
+            const rows = events || [];
+
+            if (rows.length === 0) {
+                logDiv.innerHTML = '<div style="text-align: center; padding: 24px; color: #8b9bb0;"><i class="fas fa-list-ul"></i> No defense events yet</div>';
+                return;
+            }
+
+            logDiv.innerHTML = rows.slice(0, 80).map((event) => `
+                <div class="log-entry ${severityClass(event.severity)}">
+                    <div><i class="fas fa-shield-virus"></i> <span class="log-device">${event.source}</span> -> <span class="log-target">${event.title}</span><br><span style="color:#8b9bb0; font-size:11px;">${event.detail}</span></div>
+                    <div class="log-time">${event.time || ''}</div>
+                </div>
+            `).join('');
+        }
+
+        function render(snapshot) {
+            updateHeader(snapshot);
+            updateStats(snapshot);
+            updateChart(snapshot.history || []);
+            updateAssets(snapshot.targets || []);
+            updateDevices(snapshot.devices || []);
+            updateFeed(snapshot.defenseEvents || []);
+        }
+
+        function setShieldMode(mode) {
+            fetch('/api/shield-mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode })
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.snapshot) {
+                        render(data.snapshot);
+                    }
+                })
+                .catch((error) => console.error('Shield mode update failed:', error));
+        }
+
+        function downloadReport() {
+            window.open('/api/report/defense.xls', '_blank');
+        }
+
+        socket.on('connect', () => {
+            document.querySelector('.status-dot').style.background = '#00ff00';
+        });
+
+        socket.on('disconnect', () => {
+            document.querySelector('.status-dot').style.background = '#ff3366';
+        });
+
+        socket.on('protector-update', (snapshot) => {
+            render(snapshot);
+        });
+
+        initChart();
+
+        fetch('/api/overview')
+            .then((response) => response.json())
+            .then(render)
+            .catch((error) => console.error('Failed to load protector overview:', error));
+    </script>
+</body>
+</html>
